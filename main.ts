@@ -506,7 +506,7 @@ function v4aEdits(lines: string[], strict: boolean): Edit[] {
     const secLines: Array<{ text: string; idx: number }> = [];
     while (i < last) {
       const l = lines[i]!;
-      if (isSectionStart(l) || l.trim() === '*** End Patch') break;
+      if (isSectionStart(l)) break;
       secLines.push({ text: l, idx: i });
       i++;
     }
@@ -535,24 +535,24 @@ function v4aEdits(lines: string[], strict: boolean): Edit[] {
     const chunks: V4AChunk[] = [];
     let cur: V4AChunk | null = null;
     for (const { text, idx } of rest) {
-      if (text.startsWith('@@')) {
-        if (cur) { chunks.push(cur); cur = null; }
-        cur = { anchor: text.slice(2).trim(), body: [], eof: false };
-        continue;
-      }
-      if (text.trim() === '*** End of File') {
-        if (!cur) throw new Exit2(`error: parse ${idx + 1}`);
-        cur.eof = true;
-        chunks.push(cur);
-        cur = null;
-        continue;
-      }
       if (text.startsWith(' ') || text.startsWith('-') || text.startsWith('+') || text === '') {
         if (!cur) {
           if (chunks.length > 0) throw new Exit2(`error: parse ${idx + 1}`);
           cur = { anchor: null, body: [], eof: false };
         }
         cur.body.push({ kind: text === '' ? ' ' : text[0]!, text: text === '' ? '' : text.slice(1) });
+        continue;
+      }
+      if (text.startsWith('@@')) {
+        if (cur) { chunks.push(cur); cur = null; }
+        cur = { anchor: text.slice(2).trim(), body: [], eof: false };
+        continue;
+      }
+      if (text.trimEnd() === '*** End of File') {
+        if (!cur) throw new Exit2(`error: parse ${idx + 1}`);
+        cur.eof = true;
+        chunks.push(cur);
+        cur = null;
         continue;
       }
       throw new Exit2(`error: parse ${idx + 1}`);
