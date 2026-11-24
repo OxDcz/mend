@@ -771,9 +771,18 @@ function run(args: string[]): { code: number; out: string[] } {
   rows.sort((a, b) => Buffer.compare(Buffer.from(a.key), Buffer.from(b.key)));
   const outLines = rows.map((r) => r.line);
   if (!check) {
+    // Delete first, then write. A move/create whose new path sits under a
+    // directory named like a file this patch removes (e.g. move a -> a/b)
+    // must delete that file before mkdir can create the directory. The
+    // changed map is in tree.now insertion order, and a move sets the new
+    // path before the old one, so writing in that order crashes with EEXIST
+    // (mkdir 'a' while 'a' is still a file). Deletions and writes touch
+    // different paths, so the order is otherwise unobservable.
     for (const [p, c] of changed) {
       if (c.now === null) rmSync(p, { force: true });
-      else {
+    }
+    for (const [p, c] of changed) {
+      if (c.now !== null) {
         mkdirSync(dirname(p), { recursive: true });
         writeFileSync(p, c.now);
       }
